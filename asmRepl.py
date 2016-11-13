@@ -126,11 +126,6 @@ symbols = { "add" : addDef,
 
 runDef()
 
-# how do you handle control flow?
-#     like python REPL
-#     probably record a function, then runDef until loop is satisfied
-#
-# how do you handle functions?
-#     record command strings in a list-buffer, then pass that to runDef(), which has a loop just like the one above
-# 
-# Thought: perhaps the main loop should be a function and runDef happens immediately
+# TODO: control flow
+#     Record as anonymous function, then run until loop conditions are
+#     satisfied.
