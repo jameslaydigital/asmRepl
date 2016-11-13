@@ -1,0 +1,17 @@
+
+// call add
+push 5
+push 5
+add
+
+// call print int
+push 45
+push 44
+push 43
+push 42
+push 4
+int print
+
+//call func
+func my_function
+
