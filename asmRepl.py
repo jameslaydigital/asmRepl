@@ -77,7 +77,8 @@ def runDef(fname=''):
     while True:
         cmd = functionBuffer.pop() if isBuff else sys.stdin.readline().strip()
         if cmd in ("exit", "return"): return
-        if cmd != "" and cmd[0:2] != "//":
+        cmd = cmd.split(";")[0].strip() #strip comments
+        if cmd != "":
             cmds = cmd.split(' ')
             if cmds[0] in symbols:
                 if len(cmds) == 1:
