@@ -4,6 +4,5 @@ movc R3 100
 labl start
     addr R1 R2
     cmpr R1 R3
-    pause
     jltl start
 exit
