@@ -15,6 +15,7 @@ regs = {
 stack = []
 cmdBuffer = []
 labels = {}
+heap = [0]*(1024*1024) #fixed heap for now
 
 #syscalls simulate host OS system calls
 def printcharSysCall():
@@ -76,6 +77,15 @@ def movcOp(reg, value):
 def movrOp(regA, regB):
     regs[regA] = regs[regB]
 
+def wrtrOp(reg, mem):
+    heap[int(mem)] = regs[regA]
+
+def wrtcOp(value, mem):
+    heap[int(mem)] = int(value)
+
+def readOp(reg, mem):
+    regs[reg] = heap[int(mem)]
+
 ## JUMPS ##
 def jmplOp(lbl):
     #unconditional jump
@@ -117,6 +127,9 @@ def addrOp(regA, regB):
 def addcOp(regA, value):
     regs[regA] = regs[regA]+int(value)
 
+def multOp(regA, regB):
+    regs[regA] = regs[regA] * regs[regB]
+
 def exitOp():
     exit(0)
 
@@ -138,8 +151,14 @@ def noopOp(a=None, b=None):
 operations = {
     "addr"  : addrOp,   #add registers and store result in first register
     "addc"  : addcOp,   #add reg to const and store result in register
+    "mult"  : multOp,   #multiply regA * regB, store in regA
     "movc"  : movcOp,   #copy constant to register
     "movr"  : movrOp,   #copy register to register
+
+    "wrtr"  : wrtrOp,   #write reg to memory
+    "wrtc"  : wrtcOp,   #write const to memory
+    "read"  : readOp,   #read memory to register
+
     "pshr"  : pushrOp,  #push constant or register
     "popr"  : poprOp,   #pop to register
 
