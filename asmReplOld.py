@@ -1,18 +1,9 @@
 #!/usr/bin/python
-import sys
 
-# SOME NOTES:
-# You can't perform control flow by writing gotos because the interpreter will
-# not know not to execute them as you're writing them, so this format we have
-# here is that input switches from stdin to a buffer when we're writing
-# functions or code blocks.
+import sys
 
 stack = [] #init stack
 functions = {}
-labels = {}
-instructions = []
-reg = {"ip" : 0}
-
 def printError(string):
     sys.stderr.write(str(string))
     sys.stderr.write("\n")
@@ -66,10 +57,6 @@ def printDef():
 def intDef(vector):
     return interrupts[vector]()
 
-def jumpDef(loc):
-    reg["ip"] = labels[loc]
-    return
-
 def makeFuncBuffDef(fname):
     cmd = ""
     functions[fname] = []
@@ -81,8 +68,16 @@ def makeFuncBuffDef(fname):
 
 # This is your main REPL runloop
 def runDef(fname=''):
+    isBuff = False
+    if fname != '':
+        isBuff = True
+        functionBuffer = functions[fname][:] #copy
+        functionBuffer.reverse()
+
     while True:
-        cmd = nextInstruction()
+        cmd = functionBuffer.pop() if isBuff else sys.stdin.readline().strip()
+        if cmd in ("exit", "return"): return
+        cmd = cmd.split(";")[0].strip() #strip comments
         if cmd != "":
             cmds = cmd.split(' ')
             if cmds[0] in symbols:
@@ -96,11 +91,6 @@ def runDef(fname=''):
                 printError("command not recognized: "+cmd+"\n")
 
 
-def nextInstruction():
-    reg["ip"] = reg["ip"] + 1
-    if reg["ip"] >= len(instructions):
-        instructions.append(sys.stdin.readline().strip())
-    return instructions[reg["ip"]].split(";").strip().split(" ")
 
 ##############
 # INTERRUPTS #
@@ -118,7 +108,6 @@ def printInt():
     else:
         stack.append(length)
         return 0
-
 
 # interrupts is used only by intDef
 interrupts = { "print" : printInt }
