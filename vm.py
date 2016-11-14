@@ -2,23 +2,25 @@
 
 import sys
 
-sregs = {
-    "ip" : 0 #instruction pointer
-}
-
 #general-purpose registers
-gregs = {
+regs = {
     "R1" : 0,
     "R2" : 0,
     "R3" : 0,
-    "R4" : 0
+    "R4" : 0,
+    "ip" : 0,   #instruction pointer
+    "bf" : 0    #boolean flag (for comparisons)
 }
 
 stack = []
 cmdBuffer = []
 labels = {}
+returnAddrs = []
 
 #syscalls simulate host OS system calls
+def printcharSysCall():
+    sys.stdout.write(chr(regs["R1"]))
+
 def printSysCall():
     #TODO
     return
@@ -36,7 +38,7 @@ def showstackSysCall():
 
 def showregsSysCall():
     sys.stdout.write("general registers: ")
-    print gregs
+    print regs
 
 def showlabelsSysCall():
     sys.stdout.write("labels: ")
@@ -44,11 +46,12 @@ def showlabelsSysCall():
 
 def showsregsSysCall():
     sys.stdout.write("special registers: ")
-    print sregs
+    print regs
 
 
 syscalls = {
     "print"     : printSysCall,
+    "printchar" : printcharSysCall,
     "showstack" : showstackSysCall,
     "showregs"  : showregsSysCall,
     "showlabels": showlabelsSysCall,
@@ -63,56 +66,63 @@ def pushcOp(value):
     stack.append(int(value))
 
 def pushrOp(reg):
-    stack.append(int(gregs[reg]))
+    stack.append(int(regs[reg]))
 
 def poprOp(reg):
-    gregs[reg] = stack.pop()
+    regs[reg] = stack.pop()
 
 def movcOp(reg, value):
-    gregs[reg] = int(value)
+    regs[reg] = int(value)
 
 def movrOp(regA, regB):
-    gregs[regA] = gregs[regB]
-
-def jmplOp(reg):
-    sregs['ip'] = gregs[reg]-1
+    regs[regA] = regs[regB]
 
 ## JUMPS ##
 def jmplOp(lbl):
     #unconditional jump
-    sregs['ip'] = labels[lbl]-1
+    regs['ip'] = labels[lbl]-1
     #-1 because the ip will be incr after this very op is ran
 
 def jeqlOp(lbl):
-    if sregs["bf"] == 0:
+    if regs["bf"] == 0:
         jmplOp(lbl)
 
 def jnelOp(lbl):
-    if sregs["bf"] != 0:
+    if regs["bf"] != 0:
         jmplOp(lbl)
 
 def jgtlOp(lbl):
-    if sregs["bf"] == 1:
+    if regs["bf"] == 1:
         jmplOp(lbl)
 
 def jltlOp(lbl):
-    if sregs["bf"] == -1:
+    if regs["bf"] == -1:
         jmplOp(lbl)
 
 def cmprOp(regA, regB):
-    if gregs[regA] >  gregs[regB]: sregs["bf"] = 1
-    if gregs[regA] == gregs[regB]: sregs["bf"] = 0
-    if gregs[regA] <  gregs[regB]: sregs["bf"] = -1
+    cmpcOp(regA, regs[regB])
+
+def cmpcOp(reg, value):
+    value = int(value)
+    if regs[reg] >  value: 
+        regs["bf"] = 1
+    if regs[reg] == value:
+        regs["bf"] = 0
+    if regs[reg] <  value:
+        regs["bf"] = -1
 
 
 def addrOp(regA, regB):
-    gregs[regA] = gregs[regA]+gregs[regB]
+    regs[regA] = regs[regA]+regs[regB]
+
+def addcOp(regA, value):
+    regs[regA] = regs[regA]+int(value)
 
 def exitOp():
     exit(0)
 
 def lablOp(lname):
-    labels[lname] = sregs['ip']+1
+    labels[lname] = regs['ip']+1
 
 def syscallOp(vector):
     syscalls[vector]()
@@ -123,51 +133,77 @@ def dumpOp():
     showsregsSysCall()
     showlabelsSysCall()
 
+def callOp(fname):
+    #TODO
+    # save current location on the stack for later return
+    returnAddrs.append(regs["ip"]) #set return address pointer
+    # jump to the location of the function
+    regs["ip"] = labels[fname]
+    # and allow execution
+    return
+
+def returnOp():
+    #TODO
+    # restore ip to return address
+    regs["ip"] = returnAddrs.pop()
+    return
+
+def noopOp(a=None, b=None):
+    return
+
 operations = {
     "addr"  : addrOp,   #add registers and store result in first register
+    "addc"  : addcOp,   #add reg to const and store result in register
     "movc"  : movcOp,   #copy constant to register
     "movr"  : movrOp,   #copy register to register
     "pshr"  : pushrOp,  #push constant or register
     "popr"  : poprOp,   #pop to register
 
-    "labl"  : lablOp,    #save label to labels as name lname
-
     "cmpr"  : cmprOp,  #compare two registers
+    "cmpc"  : cmpcOp,  #compare reg against const 
+
     "jmpl"  : jmplOp,  #jmp unconditionally
     "jeql"  : jeqlOp,  #jmp if equal
     "jnel"  : jnelOp,  #jmp if not equal
     "jgtl"  : jgtlOp,  #jmp if greater than
     "jltl"  : jltlOp,  #jmp if less than
     "dump"  : dumpOp,
+    "label" : noopOp, #it's a keyword
+    "noop"  : noopOp, 
 
+    "call"  : callOp,   #calls a function
+    "return": returnOp, #returns from a function
     "exit"  : exitOp,   #exits program. Should be a syscall but...
     "syscall" : syscallOp   #call constant vector, like an interrupt
 }
 
 class Operation:
     def __init__(self, cmd):
-        noCmts = cmd.strip().split(";")[0]
-        opsArgs = cmd.split(" ")
-        length = len(opsArgs)
-
-        self.name = opsArgs[0]
-        self.op1 = opsArgs[1] if length > 1 else None
-        self.op2 = opsArgs[2] if length > 2 else None
+        opsArgs = cmd.split(";")[0].strip().split(" ")
+        if cmd != "":
+            length = len(opsArgs)
+            self.name = opsArgs[0]
+            self.op1 = opsArgs[1] if length > 1 else None
+            self.op2 = opsArgs[2] if length > 2 else None
+            self.ignore = False
+        else:
+            self.ignore = True
 
 
 def runCmd(cmd):
     op = Operation(cmd)
-    if op.name not in operations:
-        printError("FATAL: operation '"+op.name+"' not recognized.")
-        dumpOp()
-        exit(1)
-    if op.op1 and op.op2:
-        operations[op.name](op.op1, op.op2)
-    elif op.op1:
-        operations[op.name](op.op1)
-    else:
-        operations[op.name]()
-    sregs['ip'] += 1
+    if op.ignore == False:
+        if op.name not in operations:
+            printError("FATAL: operation '"+op.name+"' not recognized.")
+            dumpOp()
+            exit(1)
+        if op.op1 and op.op2:
+            operations[op.name](op.op1, op.op2)
+        elif op.op1:
+            operations[op.name](op.op1)
+        else:
+            operations[op.name]()
+    regs['ip'] += 1
 
 def printError(msg):
     sys.stderr.write(msg+"\n");
@@ -175,17 +211,28 @@ def printError(msg):
 #run loop
 def run():
     while True:
-        if sregs['ip'] < len(cmdBuffer):
-            runCmd(cmdBuffer[sregs['ip']])
+        if regs['ip'] < len(cmdBuffer):
+            runCmd(cmdBuffer[regs['ip']])
         else:
             printError("END OF PROGRAM")
             exit(1)
+
+def identifyLables():
+    loc = 0
+    for cmd in cmdBuffer:
+        op = Operation(cmd)
+        if op.ignore == False:
+            if op.name == "label":
+                labels[op.op1] = int(loc)
+        loc += 1
+    # showlabelsSysCall()
 
 def fillCmdBuff():
     cmd = ""
     while cmd != "exit":
         cmd = sys.stdin.readline().strip()
         cmdBuffer.append(cmd)
+    identifyLables()
     run()
 
 fillCmdBuff()
