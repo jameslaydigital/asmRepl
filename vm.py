@@ -15,7 +15,6 @@ regs = {
 stack = []
 cmdBuffer = []
 labels = {}
-returnAddrs = []
 
 #syscalls simulate host OS system calls
 def printcharSysCall():
@@ -133,21 +132,6 @@ def dumpOp():
     showsregsSysCall()
     showlabelsSysCall()
 
-def callOp(fname):
-    #TODO
-    # save current location on the stack for later return
-    returnAddrs.append(regs["ip"]) #set return address pointer
-    # jump to the location of the function
-    regs["ip"] = labels[fname]
-    # and allow execution
-    return
-
-def returnOp():
-    #TODO
-    # restore ip to return address
-    regs["ip"] = returnAddrs.pop()
-    return
-
 def noopOp(a=None, b=None):
     return
 
@@ -171,8 +155,6 @@ operations = {
     "label" : noopOp, #it's a keyword
     "noop"  : noopOp, 
 
-    "call"  : callOp,   #calls a function
-    "return": returnOp, #returns from a function
     "exit"  : exitOp,   #exits program. Should be a syscall but...
     "syscall" : syscallOp   #call constant vector, like an interrupt
 }
