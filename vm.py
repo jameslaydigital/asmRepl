@@ -2,6 +2,8 @@
 
 import sys
 
+fileName = sys.argv[1]
+
 #general-purpose registers
 regs = {
     "R1" : 0,
@@ -20,14 +22,6 @@ heap = [0]*(1024*1024) #fixed heap for now
 #syscalls simulate host OS system calls
 def printcharSysCall():
     sys.stdout.write(chr(regs["R1"]))
-
-def printSysCall():
-    #TODO
-    return
-
-def readSysCall():
-    #TODO
-    return
 
 def exitSysCall():
     exit(0)
@@ -48,6 +42,16 @@ def showsregsSysCall():
     sys.stdout.write("special registers: ")
     print regs
 
+def readSysCall():
+    buffLoc = regs["R1"]
+    for c in sys.stdin.readline():
+        heap[buffLoc] = ord(c)
+        buffLoc += 1
+
+def printSysCall():
+    buffLoc = regs["R1"]
+    length = regs["R2"]
+    print ''.join([chr(i) for i in heap[buffLoc:buffLoc+length]])
 
 syscalls = {
     "print"     : printSysCall,
@@ -130,12 +134,6 @@ def addcOp(regA, value):
 def multOp(regA, regB):
     regs[regA] = regs[regA] * regs[regB]
 
-def exitOp():
-    exit(0)
-
-def lablOp(lname):
-    labels[lname] = regs['ip']+1
-
 def syscallOp(vector):
     syscalls[vector]()
 
@@ -174,7 +172,6 @@ operations = {
     "label" : noopOp, #it's a keyword
     "noop"  : noopOp, 
 
-    "exit"  : exitOp,   #exits program. Should be a syscall but...
     "syscall" : syscallOp   #call constant vector, like an interrupt
 }
 
@@ -224,14 +221,14 @@ def identifyLables():
         op = Operation(cmd)
         if op.ignore == False:
             if op.name == "label":
-                labels[op.op1] = int(loc)
+                labels[op.op1] = int(loc)+1
         loc += 1
     # showlabelsSysCall()
 
 def fillCmdBuff():
     cmd = ""
-    while cmd != "exit":
-        cmd = sys.stdin.readline().strip()
+    for line in open(fileName, "r").readlines():
+        cmd = line.split(";")[0].strip()
         cmdBuffer.append(cmd)
     identifyLables()
     run()
